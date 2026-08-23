@@ -377,6 +377,10 @@
       <textarea class="code-box" id="syncCode" readonly></textarea>
       <div class="btn-row">
         <button class="btn secondary small" onclick="copiarCodigo()">Copiar código</button>
+      </div>
+      <label style="margin-top:16px;display:block;">Pegar código recibido</label>
+      <textarea class="code-box" id="importCode" placeholder="Pega aquí el código completo..."></textarea>
+      <div class="btn-row">
         <button class="btn secondary small" onclick="importarCodigo()">Importar código</button>
       </div>
     </div>
@@ -1215,14 +1219,24 @@ function copiarCodigo(){
   toast('Código copiado');
 }
 function importarCodigo(){
-  const code = prompt('Pega aquí el código de historial:');
-  if(!code) return;
+  const box = document.getElementById('importCode');
+  const raw = (box.value || '').trim().replace(/\s+/g,'');
+  if(!raw){ toast('Pega un código antes de importar'); return; }
   try{
-    const data = JSON.parse(decodeURIComponent(escape(atob(code))));
-    localStorage.setItem('bdl_diagnosticos', JSON.stringify(data));
+    const incoming = JSON.parse(decodeURIComponent(escape(atob(raw))));
+    if(!Array.isArray(incoming)) throw new Error('formato inválido');
+    const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
+    let nuevos = 0;
+    incoming.forEach(r=>{
+      const existe = all.some(x=>x.id===r.id);
+      if(!existe){ all.push(r); nuevos++; }
+    });
+    all.sort((a,b)=> new Date(b.fecha) - new Date(a.fecha));
+    localStorage.setItem('bdl_diagnosticos', JSON.stringify(all));
+    box.value = '';
     refreshHistorial();
-    toast('Historial importado');
-  }catch(e){ toast('Código inválido'); }
+    toast(nuevos>0 ? `${nuevos} diagnóstico(s) importado(s)` : 'Ya tenías todos esos diagnósticos');
+  }catch(e){ toast('Código inválido — verifica que lo copiaste completo'); }
 }
 
 /* ---------- utilidades ---------- */
