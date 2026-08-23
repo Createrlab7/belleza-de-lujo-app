@@ -416,6 +416,7 @@ let state = {
   salesTip: '',
   editandoDesdeCuestionario: false,
   editandoRecordId: null,
+  editandoSoloDatosId: null,
   viendoHistorial: false
 };
 
@@ -450,6 +451,8 @@ function goTo(id){
 setTimeout(()=>{ if(document.getElementById('splash').classList.contains('active')) irARegistroInicial(); }, 900);
 
 function irARegistroInicial(){
+  state.editandoSoloDatosId = null;
+  document.getElementById('btnContinuarRegistro').textContent = 'Continuar';
   goTo('registro');
   checkDraft();
 }
@@ -550,6 +553,19 @@ function goToTipo(){
   state.cliente = buildClienteFromFields(f);
   state.cliente.fecha = nuevaFecha;
   saveDraft();
+
+  if(state.editandoSoloDatosId){
+    const id = state.editandoSoloDatosId;
+    const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
+    const idx = all.findIndex(x=>x.id===id);
+    if(idx>-1){ all[idx].cliente = state.cliente; localStorage.setItem('bdl_diagnosticos', JSON.stringify(all)); }
+    state.editandoSoloDatosId = null;
+    limpiarCamposRegistro();
+    document.getElementById('btnContinuarRegistro').textContent = 'Continuar';
+    toast('Datos actualizados');
+    goTo('historial');
+    return;
+  }
 
   document.getElementById('tipoClienteNombre').textContent = state.cliente.nombre;
 
@@ -1130,6 +1146,7 @@ function finalizarDiagnostico(){
 }
 function resetFlow(){
   state.tipo=null; state.respuestas={}; state.kit=[]; state.alertasClima=[]; state.cliente={};
+  state.editandoSoloDatosId = null;
   document.querySelectorAll('#tipo .choice').forEach(c=>c.classList.remove('selected'));
   document.getElementById('btnTipoContinuar').disabled = true;
   limpiarCamposRegistro();
@@ -1155,7 +1172,8 @@ function refreshHistorial(){
       <div><div class="li-name">${r.cliente.nombre}</div><div class="li-meta">${r.cliente.whatsapp} · ${r.tipo} · ${new Date(r.fecha).toLocaleDateString('es-CO')}</div></div>
       <div class="li-actions">
         <span class="badge ${r.sincronizado?'ok':'offline'}" style="margin-right:4px;">${r.sincronizado?'Sincronizado':'Pendiente'}</span>
-        <button class="icon-btn" title="Editar respuestas" onclick="editarDesdeHistorial('${r.id}')">✏️</button>
+        <button class="icon-btn" title="Editar datos de contacto (nombre, celular...)" onclick="editarDatosDesdeHistorial('${r.id}')">✏️</button>
+        <button class="icon-btn" title="Repetir diagnóstico (crea uno nuevo, conserva este)" onclick="repetirDiagnostico('${r.id}')">🔄</button>
         <button class="icon-btn" title="Ver / reenviar ficha" onclick="reabrirDiagnostico('${r.id}')">👁️</button>
         <button class="icon-btn" title="Eliminar de la base de datos" onclick="eliminarDiagnostico('${r.id}','${(r.cliente.nombre||'').replace(/'/g,"")}')">🗑️</button>
       </div>
@@ -1193,14 +1211,31 @@ function reabrirDiagnostico(id){
   state.viendoHistorial = true;
   goToExportar();
 }
-function editarDesdeHistorial(id){
+function editarDatosDesdeHistorial(id){
   const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
   const r = all.find(x=>x.id===id);
   if(!r) return;
   state.cliente = r.cliente;
+  state.editandoSoloDatosId = id;
+  fillRegistroFields({
+    nombre: r.cliente.nombre, whatsapp: r.cliente.whatsapp, email: r.cliente.email,
+    categoria: r.cliente.categoria, edad: r.cliente.edad,
+    municipioSel: (r.cliente.municipio==='Chigorodó') ? 'chigorodo' : 'fuera',
+    ciudad: (r.cliente.municipio==='Chigorodó') ? '' : (r.cliente.municipio||''),
+    social: r.cliente.social
+  });
+  document.getElementById('btnContinuarRegistro').textContent = 'Guardar cambios';
+  toast('Editando datos de ' + (r.cliente.nombre||'la clienta'));
+  goTo('registro');
+}
+function repetirDiagnostico(id){
+  const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
+  const r = all.find(x=>x.id===id);
+  if(!r) return;
+  state.cliente = Object.assign({}, r.cliente, { fecha: new Date() }); // registro nuevo, fecha de hoy
   state.tipo = r.tipo;
-  state.respuestas = Object.assign({}, r.respuestas);
-  state.editandoRecordId = id;
+  state.respuestas = Object.assign({}, r.respuestas); // punto de partida: sus respuestas anteriores, editables
+  state.editandoRecordId = null; // clave: esto crea un registro NUEVO, nunca sobrescribe el anterior
   state.viendoHistorial = false;
 
   let list = [];
@@ -1209,14 +1244,30 @@ function editarDesdeHistorial(id){
   state.preguntas = list;
   state.qIndex = 0;
 
-  toast('Editando respuestas de ' + (r.cliente.nombre||'la clienta'));
+  toast('Nuevo diagnóstico para ' + (r.cliente.nombre||'la clienta') + ' — el anterior se conserva');
   goTo('cuestionario');
   renderPregunta();
 }
 function copiarCodigo(){
   const box = document.getElementById('syncCode');
-  box.select(); document.execCommand('copy');
-  toast('Código copiado');
+  box.select();
+  box.setSelectionRange(0, box.value.length); // por si acaso, en celulares
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(box.value).then(
+      () => toast('Código copiado'),
+      () => intentarCopiaAntigua(box)
+    );
+  } else {
+    intentarCopiaAntigua(box);
+  }
+}
+function intentarCopiaAntigua(box){
+  try{
+    const ok = document.execCommand('copy');
+    toast(ok ? 'Código copiado' : 'No se pudo copiar solo — el texto ya está seleccionado, mantén presionado y elige "Copiar"');
+  }catch(e){
+    toast('No se pudo copiar solo — el texto ya está seleccionado, mantén presionado y elige "Copiar"');
+  }
 }
 function importarCodigo(){
   const box = document.getElementById('importCode');
