@@ -245,6 +245,7 @@
       <div class="field"><label>Red social (opcional)</label><input type="text" id="f_social" placeholder="@usuario en Instagram / TikTok" oninput="saveDraft()"></div>
     </div>
     <button class="btn" id="btnContinuarRegistro" onclick="goToTipo()">Continuar</button>
+    <button class="btn secondary" id="btnGuardarSoloRegistro" onclick="guardarRegistroSolo()" style="margin-top:10px;">📝 Solo guardar registro (sin diagnóstico aún)</button>
   </section>
 
   <!-- TIPO DIAGNOSTICO -->
@@ -427,6 +428,7 @@ let state = {
 const CAT_LABELS = {
   facial_limpieza:'Facial · Limpieza', facial_hidratacion:'Facial · Hidratación', facial_spf:'Facial · Protector solar',
   facial_tratamiento_manchas:'Facial · Tratamiento manchas', facial_tratamiento_acne:'Facial · Tratamiento acné',
+  facial_antiedad:'Facial · Antiedad', facial_contorno_ojos:'Facial · Contorno de ojos', facial_exfoliante:'Facial · Exfoliante',
   capilar_shampoo:'Capilar · Shampoo', capilar_acondicionador:'Capilar · Acondicionador',
   capilar_tratamiento:'Capilar · Tratamiento/mascarilla', capilar_leavein:'Capilar · Leave-in',
   capilar_cuero_cabelludo:'Capilar · Cuero cabelludo'
@@ -438,6 +440,9 @@ const DOSIS = {
   facial_spf:{cant:'2 dedos completos', frec:'Solo AM, reaplicar cada 3-4h si hay exposición solar', adv:'Aplicar como último paso de la rutina de mañana'},
   facial_tratamiento_manchas:{cant:'3 gotas', frec:'Solo PM', adv:'Hacer prueba de parche previa; no combinar con retinol u otros ácidos exfoliantes la misma noche'},
   facial_tratamiento_acne:{cant:'Aplicación puntual', frec:'PM, solo sobre la zona afectada', adv:'No combinar con exfoliantes fuertes la misma noche'},
+  facial_antiedad:{cant:'2-3 gotas o tamaño de una arveja', frec:'Solo PM, empezar 2-3 veces por semana', adv:'No combinar con ácidos exfoliantes o vitamina C la misma noche; usar protector solar al día siguiente'},
+  facial_contorno_ojos:{cant:'Un grano de arroz por ojo', frec:'AM y PM', adv:'Aplicar con el dedo anular, con toques suaves, sin frotar ni estirar la piel'},
+  facial_exfoliante:{cant:'1 dosificador', frec:'2 veces por semana', adv:'No usar el mismo día que retinol u otros ácidos fuertes'},
   capilar_shampoo:{cant:'2 bombeos', frec:'2-3 veces por semana', adv:'Enfocar en cuero cabelludo, no en puntas'},
   capilar_acondicionador:{cant:'1 bombeo', frec:'Cada lavado', adv:'Aplicar desde media melena hacia puntas, evitando la raíz'},
   capilar_tratamiento:{cant:'1 dosificador', frec:'1 vez por semana', adv:'Dejar actuar 10-15 minutos, idealmente con calor (gorro/toalla tibia), antes de enjuagar'},
@@ -457,6 +462,7 @@ setTimeout(()=>{ if(document.getElementById('splash').classList.contains('active
 function irARegistroInicial(){
   state.editandoSoloDatosId = null;
   document.getElementById('btnContinuarRegistro').textContent = 'Continuar';
+  document.getElementById('btnGuardarSoloRegistro').style.display = '';
   goTo('registro');
   checkDraft();
 }
@@ -566,6 +572,7 @@ function goToTipo(){
     state.editandoSoloDatosId = null;
     limpiarCamposRegistro();
     document.getElementById('btnContinuarRegistro').textContent = 'Continuar';
+    document.getElementById('btnGuardarSoloRegistro').style.display = '';
     toast('Datos actualizados');
     goTo('historial');
     return;
@@ -587,6 +594,32 @@ function goToTipo(){
   if(esNino && state.tipo!=='capilar'){ selectTipo('capilar'); }
   else if(state.tipo){ selectTipo(state.tipo); }
   goTo('tipo');
+}
+function guardarRegistroSolo(){
+  const f = collectRegistroFields();
+  if(!f.nombre || !f.whatsapp){ toast('Nombre y WhatsApp son obligatorios'); return; }
+  const cliente = buildClienteFromFields(f);
+
+  if(state.editandoSoloDatosId){
+    const id = state.editandoSoloDatosId;
+    const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
+    const idx = all.findIndex(x=>x.id===id);
+    if(idx>-1){ all[idx].cliente = Object.assign({}, all[idx].cliente, cliente, {fecha: all[idx].cliente.fecha}); localStorage.setItem('bdl_diagnosticos', JSON.stringify(all)); }
+    state.editandoSoloDatosId = null;
+    toast('Datos actualizados');
+  } else {
+    const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
+    all.unshift({
+      id: 'd_'+Date.now(), cliente, tipo: null, respuestas: {}, kit: [], clima: null,
+      alertasClima: [], fraseAmorPropio: '', salesTip: '', proximoControlDias: null,
+      proximoControlFecha: null, fecha: cliente.fecha, sincronizado: navigator.onLine
+    });
+    localStorage.setItem('bdl_diagnosticos', JSON.stringify(all));
+    toast('Registro guardado — completa el diagnóstico cuando quieras desde Historial');
+  }
+  localStorage.removeItem('bdl_draft');
+  resetFlow();
+  document.getElementById('draftBanner').style.display='none';
 }
 function volverARegistro(){
   fillRegistroFields(collectRegistroFieldsFromState());
@@ -620,9 +653,14 @@ const PREG_FACIAL = [
     {v:'sensible', t:'Sensible', d:'Se irrita o enrojece con facilidad'}]},
   {id:'sensibilidad', titulo:'¿Tu piel reacciona a productos nuevos?', sub:'Sección Facial', opts:[
     {v:'nunca', t:'Casi nunca'}, {v:'aveces', t:'A veces'}, {v:'frecuente', t:'Frecuentemente'}]},
-  {id:'imperfecciones', titulo:'¿Qué te preocupa más ahora mismo?', sub:'Sección Facial', opts:[
+  {id:'preocupaciones', titulo:'¿Qué te preocupa más ahora mismo?', sub:'Sección Facial — puedes elegir varias', multi:true, opts:[
     {v:'manchas', t:'Manchas / hiperpigmentación'},
     {v:'acne', t:'Acné o imperfecciones activas'},
+    {v:'arrugas', t:'Líneas de expresión / arrugas'},
+    {v:'ojeras', t:'Ojeras'},
+    {v:'bolsas', t:'Bolsas debajo de los ojos'},
+    {v:'poros', t:'Poros dilatados'},
+    {v:'opacidad', t:'Piel opaca, sin luminosidad'},
     {v:'ninguna', t:'Ninguna en particular'}]},
   {id:'solar', titulo:'¿Usas protector solar a diario?', sub:'Sección Facial', opts:[
     {v:'si', t:'Sí, todos los días'}, {v:'aveces', t:'Solo a veces'}, {v:'no', t:'No lo uso'}]}
@@ -668,21 +706,44 @@ function renderPregunta(){
 
   const wrap = document.getElementById('qChoices');
   wrap.innerHTML = '';
-  p.opts.forEach(o=>{
-    const el = document.createElement('div');
-    el.className = 'choice' + (state.respuestas[p.id]===o.v ? ' selected':'');
-    el.innerHTML = `<div><div class="choice-title">${o.t}</div>${o.d?'<div class="choice-desc">'+o.d+'</div>':''}</div><div class="choice-check"></div>`;
-    el.onclick = ()=>{ state.respuestas[p.id]=o.v; saveDraft(); renderPregunta(); };
-    wrap.appendChild(el);
-  });
-  document.getElementById('btnSiguiente').disabled = !(p.id in state.respuestas);
+  if(p.multi){
+    const arr = state.respuestas[p.id] || [];
+    p.opts.forEach(o=>{
+      const selected = arr.includes(o.v);
+      const el = document.createElement('div');
+      el.className = 'choice' + (selected ? ' selected':'');
+      el.innerHTML = `<div><div class="choice-title">${o.t}</div>${o.d?'<div class="choice-desc">'+o.d+'</div>':''}</div><div class="choice-check"></div>`;
+      el.onclick = ()=>{
+        let cur = state.respuestas[p.id] || [];
+        if(o.v==='ninguna'){
+          cur = selected ? [] : ['ninguna'];
+        } else {
+          cur = cur.filter(x=>x!=='ninguna');
+          cur = selected ? cur.filter(x=>x!==o.v) : cur.concat([o.v]);
+        }
+        state.respuestas[p.id] = cur;
+        saveDraft(); renderPregunta();
+      };
+      wrap.appendChild(el);
+    });
+    document.getElementById('btnSiguiente').disabled = !(arr.length>0);
+  } else {
+    p.opts.forEach(o=>{
+      const el = document.createElement('div');
+      el.className = 'choice' + (state.respuestas[p.id]===o.v ? ' selected':'');
+      el.innerHTML = `<div><div class="choice-title">${o.t}</div>${o.d?'<div class="choice-desc">'+o.d+'</div>':''}</div><div class="choice-check"></div>`;
+      el.onclick = ()=>{ state.respuestas[p.id]=o.v; saveDraft(); renderPregunta(); };
+      wrap.appendChild(el);
+    });
+    document.getElementById('btnSiguiente').disabled = !(p.id in state.respuestas);
+  }
   document.getElementById('btnSiguiente').textContent = (state.qIndex===state.preguntas.length-1) ? 'Ver resultado' : 'Siguiente';
   document.getElementById('sidePanelCliente').textContent = `${state.cliente.nombre} · ${state.cliente.whatsapp}`;
   renderLivePreview();
 }
 function renderLivePreview(){
   const el = document.getElementById('livePreview');
-  const rows = Object.entries(state.respuestas).map(([k,v])=>`<div>${k}: <b style="color:var(--text)">${v}</b></div>`);
+  const rows = Object.entries(state.respuestas).map(([k,v])=>`<div>${k}: <b style="color:var(--text)">${Array.isArray(v) ? v.join(', ') : v}</b></div>`);
   el.innerHTML = rows.join('') || 'Sin respuestas aún';
 }
 function prevPregunta(){
@@ -753,6 +814,9 @@ function nombreTecnico(cat, r){
     case 'facial_spf': return 'Protector solar facial';
     case 'facial_tratamiento_manchas': return 'Sérum despigmentante';
     case 'facial_tratamiento_acne': return 'Tratamiento anti-acné localizado';
+    case 'facial_antiedad': return 'Sérum o crema antiedad';
+    case 'facial_contorno_ojos': return 'Contorno de ojos';
+    case 'facial_exfoliante': return 'Exfoliante químico facial';
     case 'capilar_shampoo':
       if(r.cueroCabelludo==='graso') return 'Champú control de grasa';
       if(r.cueroCabelludo==='sensible') return 'Champú anticaspa / calmante';
@@ -783,8 +847,21 @@ function porQueSeRecomienda(cat, r){
       if(r.tipoPiel==='sensible') return 'Porque tiene piel sensible — calma mientras hidrata.';
       return 'Para mantener el equilibrio de hidratación de su piel.';
     case 'facial_spf': return 'Uso diario recomendado para toda persona, prevención de manchas y envejecimiento prematuro.';
-    case 'facial_tratamiento_manchas': return 'Porque indicó que le preocupan las manchas / hiperpigmentación.';
+    case 'facial_tratamiento_manchas': {
+      const preo = r.preocupaciones || [];
+      if(preo.includes('manchas') && preo.includes('opacidad')) return 'Porque indicó manchas y falta de luminosidad — este activo ayuda con las dos cosas.';
+      if(preo.includes('opacidad')) return 'Porque indicó piel opaca / sin luminosidad — este activo ayuda a iluminar el tono.';
+      return 'Porque indicó que le preocupan las manchas / hiperpigmentación.';
+    }
     case 'facial_tratamiento_acne': return 'Porque indicó acné o imperfecciones activas.';
+    case 'facial_antiedad': return 'Porque indicó líneas de expresión o arrugas como una de sus preocupaciones.';
+    case 'facial_contorno_ojos': {
+      const preo = r.preocupaciones || [];
+      if(preo.includes('ojeras') && preo.includes('bolsas')) return 'Porque indicó ojeras y bolsas debajo de los ojos — un contorno de ojos ayuda con ambas.';
+      if(preo.includes('bolsas')) return 'Porque indicó bolsas debajo de los ojos.';
+      return 'Porque indicó ojeras como una de sus preocupaciones.';
+    }
+    case 'facial_exfoliante': return 'Porque indicó poros dilatados — la exfoliación regular ayuda a mantenerlos más limpios y afinados.';
     case 'capilar_shampoo':
       if(r.cueroCabelludo==='graso') return 'Porque indicó que su cuero cabelludo se re-engrasa rápido (1-2 días).';
       if(r.cueroCabelludo==='sensible') return 'Porque indicó picazón, molestias o caspa en el cuero cabelludo.';
@@ -834,6 +911,12 @@ function ingredienteSugerido(cat, r, clima){
       return 'Sérum con niacinamida o vitamina C — ayuda a unificar el tono de la piel';
     case 'facial_tratamiento_acne':
       return 'Tratamiento con ácido salicílico — aplicación puntual, uso nocturno';
+    case 'facial_antiedad':
+      return 'Retinol o péptidos — estimula colágeno, uso nocturno y gradual. El ácido hialurónico ayuda a rellenar líneas por deshidratación';
+    case 'facial_contorno_ojos':
+      return 'Cafeína o péptidos — reduce la apariencia de cansancio e hinchazón';
+    case 'facial_exfoliante':
+      return 'Ácido glicólico o salicílico — renueva la piel y ayuda a afinar los poros';
     case 'capilar_shampoo':
       if(cuero==='graso') return 'Champú de limpieza profunda, uso frecuente — evita re-engrasar rápido';
       if(cuero==='seco') return 'Champú hidratante, sin sulfatos fuertes';
@@ -885,8 +968,12 @@ function generarKit(){
     necesidades.push('facial_limpieza');
     necesidades.push('facial_hidratacion');
     necesidades.push('facial_spf');
-    if(r.imperfecciones==='manchas'){ necesidades.push('facial_tratamiento_manchas'); prioridad30=true; }
-    if(r.imperfecciones==='acne'){ necesidades.push('facial_tratamiento_acne'); prioridad30=true; }
+    const preo = r.preocupaciones || [];
+    if(preo.includes('manchas') || preo.includes('opacidad')){ necesidades.push('facial_tratamiento_manchas'); prioridad30=true; }
+    if(preo.includes('acne')){ necesidades.push('facial_tratamiento_acne'); prioridad30=true; }
+    if(preo.includes('arrugas')){ necesidades.push('facial_antiedad'); prioridad30=true; }
+    if(preo.includes('ojeras') || preo.includes('bolsas')){ necesidades.push('facial_contorno_ojos'); }
+    if(preo.includes('poros')){ necesidades.push('facial_exfoliante'); }
   }
   if(state.tipo==='capilar' || state.tipo==='completo'){
     necesidades.push('capilar_shampoo');
@@ -909,6 +996,12 @@ function generarKit(){
     ingrediente: ingredienteSugerido(cat, r, clima)
   }));
   state.alertasClima = construirAlertasClima(clima);
+
+  const activosPM = ['facial_tratamiento_manchas','facial_tratamiento_acne','facial_antiedad','facial_exfoliante'];
+  const cuantosActivos = necesidades.filter(n=>activosPM.includes(n)).length;
+  if(cuantosActivos >= 2){
+    state.alertasClima.push('🌙 Tiene varios tratamientos de uso nocturno en su ritual — para evitar irritación, alterne noches entre ellos (uno cada noche), en vez de aplicarlos todos juntos.');
+  }
   state.proximoControlDias = state.cliente.categoria==='nino' ? 90 : (prioridad30 ? 30 : 60);
   state.salesTip = state.kit.length >= 3
     ? '💡 Ofrece el ritual completo como combo — buen momento para mover ese producto que sabes que rota más lento en tienda.'
@@ -1115,14 +1208,7 @@ function exportDescargar(){
   link.download = `ficha-${(state.cliente.nombre||'clienta').replace(/\s+/g,'-').toLowerCase()}.png`;
   link.href = cv.toDataURL('image/png');
   link.click();
-  if(navigator.share && navigator.canShare){
-    cv.toBlob(blob=>{
-      const file = new File([blob], link.download, {type:'image/png'});
-      if(navigator.canShare({files:[file]})){
-        navigator.share({files:[file], title:'Tu Ritual', text: reportMessage()}).catch(()=>{});
-      }
-    });
-  }
+  toast('Ficha descargada — puedes adjuntarla donde quieras enviarla');
 }
 
 /* ---------- guardar / historial ---------- */
@@ -1167,6 +1253,8 @@ function resetFlow(){
   state.editandoSoloDatosId = null;
   document.querySelectorAll('#tipo .choice').forEach(c=>c.classList.remove('selected'));
   document.getElementById('btnTipoContinuar').disabled = true;
+  document.getElementById('btnContinuarRegistro').textContent = 'Continuar';
+  document.getElementById('btnGuardarSoloRegistro').style.display = '';
   limpiarCamposRegistro();
 }
 function limpiarCamposRegistro(){
@@ -1187,11 +1275,11 @@ function refreshHistorial(){
   if(!all.length){ wrap.innerHTML = '<p class="lead" style="margin:0;">Aún no hay rituales guardados.</p>'; }
   else {
     wrap.innerHTML = all.map(r=>`<div class="list-item">
-      <div><div class="li-name">${r.cliente.nombre}</div><div class="li-meta">${r.cliente.whatsapp} · ${r.tipo} · ${new Date(r.fecha).toLocaleDateString('es-CO')}</div></div>
+      <div><div class="li-name">${r.cliente.nombre}</div><div class="li-meta">${r.cliente.whatsapp} · ${r.tipo ? r.tipo : 'Sin diagnóstico aún'} · ${new Date(r.fecha).toLocaleDateString('es-CO')}</div></div>
       <div class="li-actions">
         <span class="badge ${r.sincronizado?'ok':'offline'}" style="margin-right:4px;">${r.sincronizado?'Sincronizado':'Pendiente'}</span>
         <button class="icon-btn" title="Editar datos de contacto (nombre, celular...)" onclick="editarDatosDesdeHistorial('${r.id}')">✏️</button>
-        <button class="icon-btn" title="Repetir ritual (crea uno nuevo, conserva este)" onclick="repetirDiagnostico('${r.id}')">🔄</button>
+        <button class="icon-btn" title="${r.tipo ? 'Repetir ritual (crea uno nuevo, conserva este)' : 'Hacer su primer diagnóstico'}" onclick="repetirDiagnostico('${r.id}')">${r.tipo ? '🔄' : '➕'}</button>
         <button class="icon-btn" title="Ver / reenviar ficha" onclick="reabrirDiagnostico('${r.id}')">👁️</button>
         <button class="icon-btn" title="Eliminar de la base de datos" onclick="eliminarDiagnostico('${r.id}','${(r.cliente.nombre||'').replace(/'/g,"")}')">🗑️</button>
       </div>
@@ -1216,6 +1304,7 @@ function reabrirDiagnostico(id){
   const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
   const r = all.find(x=>x.id===id);
   if(!r) return;
+  if(!r.tipo){ toast('Esta clienta aún no tiene un diagnóstico — usa ➕ para hacerle uno.'); return; }
   state.cliente = r.cliente;
   state.tipo = r.tipo;
   state.respuestas = r.respuestas;
@@ -1243,6 +1332,7 @@ function editarDatosDesdeHistorial(id){
     social: r.cliente.social
   });
   document.getElementById('btnContinuarRegistro').textContent = 'Guardar cambios';
+  document.getElementById('btnGuardarSoloRegistro').style.display = 'none';
   toast('Editando datos de ' + (r.cliente.nombre||'la clienta'));
   goTo('registro');
 }
@@ -1251,10 +1341,25 @@ function repetirDiagnostico(id){
   const r = all.find(x=>x.id===id);
   if(!r) return;
   state.cliente = Object.assign({}, r.cliente, { fecha: new Date() }); // registro nuevo, fecha de hoy
-  state.tipo = r.tipo;
-  state.respuestas = Object.assign({}, r.respuestas); // punto de partida: sus respuestas anteriores, editables
   state.editandoRecordId = null; // clave: esto crea un registro NUEVO, nunca sobrescribe el anterior
   state.viendoHistorial = false;
+
+  if(!r.tipo){
+    // aún no tiene diagnóstico — la llevamos a elegir el tipo, como un registro normal
+    state.tipo = null;
+    state.respuestas = {};
+    document.getElementById('tipoClienteNombre').textContent = state.cliente.nombre;
+    document.getElementById('tipo_hint').textContent = state.cliente.categoria==='nino' ? 'Para categoría Niño(a), el ritual disponible es Capilar.' : 'Elige el tipo de evaluación.';
+    document.querySelector('.choice[data-val="facial"]').classList.toggle('disabled', state.cliente.categoria==='nino');
+    document.querySelector('.choice[data-val="completo"]').classList.toggle('disabled', state.cliente.categoria==='nino');
+    document.querySelectorAll('#tipo .choice').forEach(c=>c.classList.remove('selected'));
+    document.getElementById('btnTipoContinuar').disabled = true;
+    goTo('tipo');
+    return;
+  }
+
+  state.tipo = r.tipo;
+  state.respuestas = Object.assign({}, r.respuestas); // punto de partida: sus respuestas anteriores, editables
 
   let list = [];
   if(r.tipo==='facial' || r.tipo==='completo') list = list.concat(PREG_FACIAL);
