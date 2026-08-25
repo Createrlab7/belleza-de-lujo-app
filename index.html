@@ -661,7 +661,7 @@ const PREG_FACIAL = [
     {v:'bolsas', t:'Bolsas debajo de los ojos'},
     {v:'poros', t:'Poros dilatados'},
     {v:'opacidad', t:'Piel opaca, sin luminosidad'},
-    {v:'ninguna', t:'Ninguna en particular'}]},
+    {v:'ninguna', t:'Ninguna en particular', excl:true}]},
   {id:'solar', titulo:'¿Usas protector solar a diario?', sub:'Sección Facial', opts:[
     {v:'si', t:'Sí, todos los días'}, {v:'aveces', t:'Solo a veces'}, {v:'no', t:'No lo uso'}]}
 ];
@@ -670,6 +670,11 @@ const PREG_CAPILAR = [
     {v:'fina', t:'Fina'}, {v:'media', t:'Media'}, {v:'gruesa', t:'Gruesa'}]},
   {id:'rizo', titulo:'¿Cuál es tu patrón natural?', sub:'Sección Capilar', opts:[
     {v:'liso', t:'Liso'}, {v:'ondulado', t:'Ondulado'}, {v:'rizado', t:'Rizado'}, {v:'afro', t:'Afro / muy rizado'}]},
+  {id:'estadoQuimico', titulo:'¿Cuál es el estado de tu cabello?', sub:'Sección Capilar — puedes elegir varias', multi:true, opts:[
+    {v:'natural', t:'Natural', d:'Sin procesos químicos', excl:true},
+    {v:'alisado', t:'Alisado', d:'Alisado químico / keratina'},
+    {v:'tinturado', t:'Tinturado', d:'Con tinte o color aplicado'},
+    {v:'decolorado', t:'Decolorado', d:'Con decoloración / mechas'}]},
   {id:'porosidad', titulo:'¿Cómo absorbe la humedad tu cabello?', sub:'Sección Capilar', opts:[
     {v:'baja', t:'Baja', d:'Repele el agua, tarda en mojarse'},
     {v:'media', t:'Media', d:'Absorbe de forma equilibrada'},
@@ -715,10 +720,10 @@ function renderPregunta(){
       el.innerHTML = `<div><div class="choice-title">${o.t}</div>${o.d?'<div class="choice-desc">'+o.d+'</div>':''}</div><div class="choice-check"></div>`;
       el.onclick = ()=>{
         let cur = state.respuestas[p.id] || [];
-        if(o.v==='ninguna'){
-          cur = selected ? [] : ['ninguna'];
+        if(o.excl){
+          cur = selected ? [] : [o.v];
         } else {
-          cur = cur.filter(x=>x!=='ninguna');
+          cur = cur.filter(x => x!==(p.opts.find(op=>op.excl)||{}).v);
           cur = selected ? cur.filter(x=>x!==o.v) : cur.concat([o.v]);
         }
         state.respuestas[p.id] = cur;
@@ -817,16 +822,27 @@ function nombreTecnico(cat, r){
     case 'facial_antiedad': return 'Sérum o crema antiedad';
     case 'facial_contorno_ojos': return 'Contorno de ojos';
     case 'facial_exfoliante': return 'Exfoliante químico facial';
-    case 'capilar_shampoo':
+    case 'capilar_shampoo': {
+      const eq = r.estadoQuimico || [];
+      if(eq.includes('tinturado') || eq.includes('decolorado')) return 'Champú para cabello con color, sin sulfatos fuertes';
       if(r.cueroCabelludo==='graso') return 'Champú control de grasa';
       if(r.cueroCabelludo==='sensible') return 'Champú anticaspa / calmante';
       if(r.cueroCabelludo==='seco') return 'Champú hidratante, sin sulfatos';
       return 'Champú de mantenimiento';
-    case 'capilar_acondicionador':
+    }
+    case 'capilar_acondicionador': {
+      const eq = r.estadoQuimico || [];
+      if(eq.includes('decolorado')) return 'Acondicionador reconstructor con proteínas';
+      if(eq.includes('alisado')) return 'Acondicionador hidratante reforzado';
       if(r.porosidad==='alta') return 'Acondicionador reconstructor con proteínas';
       if(r.porosidad==='baja') return 'Acondicionador ligero, sin proteínas';
       return 'Acondicionador hidratante de uso regular';
-    case 'capilar_tratamiento': return 'Mascarilla / tratamiento profundo semanal';
+    }
+    case 'capilar_tratamiento': {
+      const eq = r.estadoQuimico || [];
+      if(eq.includes('decolorado')) return 'Tratamiento reconstructor intensivo';
+      return 'Mascarilla / tratamiento profundo semanal';
+    }
     case 'capilar_leavein': return 'Leave-in o crema desenredante sin enjuague';
     case 'capilar_cuero_cabelludo': return 'Tratamiento calmante para cuero cabelludo';
     default: return CAT_LABELS[cat] || cat;
@@ -862,23 +878,34 @@ function porQueSeRecomienda(cat, r){
       return 'Porque indicó ojeras como una de sus preocupaciones.';
     }
     case 'facial_exfoliante': return 'Porque indicó poros dilatados — la exfoliación regular ayuda a mantenerlos más limpios y afinados.';
-    case 'capilar_shampoo':
+    case 'capilar_shampoo': {
+      const eq = r.estadoQuimico || [];
+      if(eq.includes('tinturado') || eq.includes('decolorado')) return 'Porque su cabello tiene color aplicado — este tipo de champú evita que se desvanezca o se torne opaco antes de tiempo.';
       if(r.cueroCabelludo==='graso') return 'Porque indicó que su cuero cabelludo se re-engrasa rápido (1-2 días).';
       if(r.cueroCabelludo==='sensible') return 'Porque indicó picazón, molestias o caspa en el cuero cabelludo.';
       if(r.cueroCabelludo==='seco') return 'Porque indicó cuero cabelludo seco.';
       return 'Porque indicó un cuero cabelludo equilibrado — mantenimiento regular.';
-    case 'capilar_acondicionador':
+    }
+    case 'capilar_acondicionador': {
+      const eq = r.estadoQuimico || [];
+      if(eq.includes('decolorado')) return 'Porque su cabello está decolorado — este es el proceso más agresivo para la fibra, y necesita proteínas para reconstruir su estructura interna.';
+      if(eq.includes('alisado')) return 'Porque su cabello está alisado — el proceso reseca la fibra, y necesita hidratación reforzada para no perder el efecto antes de tiempo.';
       if(r.porosidad==='alta') return 'Porque indicó que su cabello se moja y seca rápido, y se siente reseco (porosidad alta) — las proteínas ayudan a sellar la fibra.';
       if(r.porosidad==='baja') return 'Porque indicó que su cabello repele el agua y tarda en mojarse (porosidad baja) — un producto ligero evita que se sienta pesado.';
       return 'Porque indicó porosidad media — absorbe la humedad de forma equilibrada.';
+    }
     case 'capilar_tratamiento': {
       let razones = [];
+      const eq = r.estadoQuimico || [];
+      if(eq.includes('decolorado')) razones.push('cabello decolorado');
+      if(eq.includes('alisado')) razones.push('cabello alisado químicamente');
       if(r.porosidad==='alta') razones.push('porosidad alta');
       if(r.desenredo==='dificil') razones.push('se le dificulta desenredar');
       if(r.rizo==='rizado') razones.push('cabello rizado');
       if(r.rizo==='afro') razones.push('cabello afro / muy rizado');
       const motivo = razones.length ? razones.join(' y ') : 'el estado general de su cabello';
-      return 'Por ' + motivo + ' — un refuerzo semanal ayuda a mantenerlo sano y manejable.';
+      const urgencia = eq.includes('decolorado') ? ' — con decoloración, este refuerzo idealmente es más frecuente que en cabello sin procesos.' : ' — un refuerzo semanal ayuda a mantenerlo sano y manejable.';
+      return 'Por ' + motivo + urgencia;
     }
     case 'capilar_leavein':
       if(r.desenredo==='dificil') return 'Porque indicó que su cabello se enreda mucho — facilita el peinado sin romper la fibra.';
@@ -892,6 +919,7 @@ function ingredienteSugerido(cat, r, clima){
   const tp = r.tipoPiel;
   const cuero = r.cueroCabelludo;
   const poro = r.porosidad;
+  const eq = r.estadoQuimico || [];
   switch(cat){
     case 'facial_limpieza':
       if(tp==='grasa') return 'Limpiador con ácido salicílico — ayuda a controlar grasa y poros obstruidos';
@@ -918,15 +946,20 @@ function ingredienteSugerido(cat, r, clima){
     case 'facial_exfoliante':
       return 'Ácido glicólico o salicílico — renueva la piel y ayuda a afinar los poros';
     case 'capilar_shampoo':
+      if(eq.includes('tinturado') || eq.includes('decolorado')) return 'Fórmula sin sulfatos fuertes, con filtro UV — protege el color del sol y evita que se desvanezca';
       if(cuero==='graso') return 'Champú de limpieza profunda, uso frecuente — evita re-engrasar rápido';
       if(cuero==='seco') return 'Champú hidratante, sin sulfatos fuertes';
       if(cuero==='sensible') return 'Champú suave, sin fragancia, para cuero cabelludo sensible';
       return 'Champú acorde al estado del cuero cabelludo';
     case 'capilar_acondicionador':
+      if(eq.includes('decolorado')) return 'Proteínas hidrolizadas — reconstruye la fibra debilitada por la decoloración';
+      if(eq.includes('alisado')) return 'Hidratación intensiva sin sulfatos — compensa la resequedad del alisado';
       if(poro==='baja') return 'Acondicionador ligero, sin proteínas — aplicar sobre el cabello mojado para que penetre mejor';
       if(poro==='alta') return 'Acondicionador con proteínas — ayuda a sellar la cutícula abierta';
       return 'Acondicionador de uso regular, rutina equilibrada';
     case 'capilar_tratamiento':
+      if(eq.includes('decolorado')) return 'Tratamiento reconstructor con proteínas (queratina, aminoácidos) — repara la estructura interna dañada por la decoloración';
+      if(eq.includes('alisado')) return 'Tratamiento hidratante profundo — recupera la humedad que el alisado le quita a la fibra';
       return 'Mascarilla con proteínas e hidratación — refuerza el cabello de alta porosidad (aplicar líquido, luego aceite, luego crema, para sellar la humedad)';
     case 'capilar_leavein':
       return 'Crema o leave-in con agentes desenredantes — facilita el peinado y reduce la rotura';
@@ -954,6 +987,14 @@ function construirAlertasClima(clima){
   if(state.tipo==='capilar' || state.tipo==='completo'){
     if(clima==='calido') out.push('💇‍♀️ La humedad de ' + ciudad + ' favorece el frizz — conviene reforzar con tratamiento anti-frizz.');
     else if(clima==='frio') out.push('💇‍♀️ El clima frío y el viento resecan el cabello y generan estática — un tratamiento nutritivo ayuda a controlarlo.');
+
+    const eq = r.estadoQuimico || [];
+    if(eq.includes('decolorado')){
+      out.push('⚠️ Cabello decolorado: es el proceso más delicado para la fibra capilar — evitar planchas/secador a temperatura muy alta y espaciar nuevos procesos químicos hasta que se recupere.');
+    }
+    if((eq.includes('tinturado') || eq.includes('decolorado')) && clima==='calido'){
+      out.push('☀️ El sol y el cloro de piscina desvanecen el color más rápido en climas cálidos — recomendar protector capilar con filtro UV.');
+    }
   }
   return out;
 }
@@ -978,9 +1019,11 @@ function generarKit(){
   if(state.tipo==='capilar' || state.tipo==='completo'){
     necesidades.push('capilar_shampoo');
     necesidades.push('capilar_acondicionador');
-    if(r.porosidad==='alta' || r.desenredo==='dificil' || r.rizo==='rizado' || r.rizo==='afro'){
+    const eq = r.estadoQuimico || [];
+    if(r.porosidad==='alta' || r.desenredo==='dificil' || r.rizo==='rizado' || r.rizo==='afro' || eq.includes('decolorado') || eq.includes('alisado')){
       necesidades.push('capilar_tratamiento');
     }
+    if(eq.includes('decolorado')){ prioridad30 = true; }
     if(r.desenredo==='dificil' || r.rizo==='rizado' || r.rizo==='afro'){
       necesidades.push('capilar_leavein');
     }
