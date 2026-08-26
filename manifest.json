@@ -1,7 +1,7 @@
 {
-  "name": "Belleza de Lujo — Diagnóstico",
-  "short_name": "B. de Lujo",
-  "description": "Diagnóstico de belleza y rutina personalizada — Belleza de Lujo by Ana Díaz",
+  "name": "Belleza de Lujo — Tu Ritual",
+  "short_name": "Tu Ritual",
+  "description": "Tu Ritual de diagnóstico y rutina personalizada — Belleza de Lujo by Ana Díaz",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
