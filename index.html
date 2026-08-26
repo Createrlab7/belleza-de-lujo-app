@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="B. de Lujo">
+<meta name="apple-mobile-web-app-title" content="Tu Ritual">
 <style>
   :root{
     --black:#121011;
@@ -214,6 +214,11 @@
         <button class="btn small" style="flex:1;" onclick="reanudarDraft()">Continuar</button>
         <button class="btn secondary small" style="flex:1;" onclick="descartarDraft()">Descartar</button>
       </div>
+    </div>
+
+    <div id="seguimientosHoyBanner" class="draft-banner" style="display:none;border-color:rgba(201,160,135,.5);">
+      <div class="t">📅 Seguimientos de hoy</div>
+      <div class="d" id="seguimientosHoyLista"></div>
     </div>
 
     <span class="badge" id="netBadge" style="margin-bottom:14px;display:inline-block;">Sin conexión</span>
@@ -465,6 +470,7 @@ function irARegistroInicial(){
   document.getElementById('btnGuardarSoloRegistro').style.display = '';
   goTo('registro');
   checkDraft();
+  revisarSeguimientosHoy();
 }
 
 /* ---------- borrador automático (nunca se pierde nada) ---------- */
@@ -1318,7 +1324,7 @@ function refreshHistorial(){
   if(!all.length){ wrap.innerHTML = '<p class="lead" style="margin:0;">Aún no hay rituales guardados.</p>'; }
   else {
     wrap.innerHTML = all.map(r=>`<div class="list-item">
-      <div><div class="li-name">${r.cliente.nombre}</div><div class="li-meta">${r.cliente.whatsapp} · ${r.tipo ? r.tipo : 'Sin diagnóstico aún'} · ${new Date(r.fecha).toLocaleDateString('es-CO')}</div></div>
+      <div><div class="li-name">${r.cliente.nombre}</div><div class="li-meta">${r.cliente.whatsapp} · ${r.tipo ? r.tipo : 'Sin diagnóstico aún'} · ${new Date(r.fecha).toLocaleDateString('es-CO')}, ${new Date(r.fecha).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}</div></div>
       <div class="li-actions">
         <span class="badge ${r.sincronizado?'ok':'offline'}" style="margin-right:4px;">${r.sincronizado?'Sincronizado':'Pendiente'}</span>
         <button class="icon-btn" title="Editar datos de contacto (nombre, celular...)" onclick="editarDatosDesdeHistorial('${r.id}')">✏️</button>
@@ -1503,6 +1509,23 @@ window.addEventListener('load', ()=>{
     if(isAndroid() && !isStandalone() && !deferredPrompt){ showInstallBanner('android-manual'); }
   }, 2500);
 });
+
+function revisarSeguimientosHoy(){
+  const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
+  const hoy = new Date();
+  const hoyStr = hoy.toDateString();
+  const pendientes = all.filter(r=>{
+    if(!r.proximoControlFecha) return false;
+    return new Date(r.proximoControlFecha).toDateString() === hoyStr;
+  });
+  const banner = document.getElementById('seguimientosHoyBanner');
+  if(pendientes.length === 0){ banner.style.display = 'none'; return; }
+  document.getElementById('seguimientosHoyLista').innerHTML = pendientes.map(r=>
+    `<div style="margin-top:4px;">• <b style="color:var(--text);">${r.cliente.nombre}</b> — ${r.cliente.whatsapp}</div>`
+  ).join('');
+  banner.style.display = 'block';
+}
+window.addEventListener('load', revisarSeguimientosHoy);
 function doInstall(){
   if(!deferredPrompt) return;
   deferredPrompt.prompt();
