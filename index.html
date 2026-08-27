@@ -368,7 +368,9 @@
       <div class="export-btn" onclick="window.print()"><span class="ic">🖨️</span>Imprimir</div>
     </div>
 
-    <button class="btn secondary" style="margin-top:18px;" id="btnFinalizarExportar" onclick="finalizarDiagnostico()">Guardar y volver al inicio</button>
+    <button class="btn secondary" style="margin-top:18px;" id="btnGuardarExportar" onclick="guardarDesdeExportar()">Guardar</button>
+    <button class="btn secondary" style="margin-top:10px;" onclick="noGuardarDesdeExportar()">No guardar</button>
+    <button class="btn secondary" style="margin-top:10px;" onclick="salirDesdeExportar()">Salir (nuevo registro)</button>
   </section>
 
   <!-- HISTORIAL -->
@@ -1104,7 +1106,6 @@ function goToExportar(){
   goTo('exportar');
   updateSyncBanner();
   drawReportCanvas();
-  document.getElementById('btnFinalizarExportar').textContent = state.viendoHistorial ? 'Volver al historial' : 'Guardar y volver al inicio';
 }
 function volverAResultadoOHistorial(){
   if(state.viendoHistorial){ state.viendoHistorial=false; goTo('historial'); }
@@ -1261,10 +1262,8 @@ function exportDescargar(){
 }
 
 /* ---------- guardar / historial ---------- */
-function finalizarDiagnostico(){
-  if(state.viendoHistorial){ state.viendoHistorial=false; goTo('historial'); return; }
-  const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
-  const record = {
+function construirRegistroActual(){
+  return {
     id: state.editandoRecordId || ('d_'+Date.now()),
     cliente: state.cliente,
     tipo: state.tipo,
@@ -1279,6 +1278,10 @@ function finalizarDiagnostico(){
     fecha: state.cliente.fecha,
     sincronizado: navigator.onLine
   };
+}
+function guardarDesdeExportar(){
+  const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
+  const record = construirRegistroActual();
   if(state.editandoRecordId){
     const idx = all.findIndex(x=>x.id===state.editandoRecordId);
     if(idx>-1) all[idx] = record; else all.unshift(record);
@@ -1290,12 +1293,26 @@ function finalizarDiagnostico(){
   localStorage.setItem('bdl_diagnosticos', JSON.stringify(all));
   localStorage.removeItem('bdl_draft');
   state.editandoRecordId = null;
+  state.viendoHistorial = false;
   resetFlow();
-  setTimeout(()=>{
-    limpiarCamposRegistro();
-    goTo('registro');
-    document.getElementById('draftBanner').style.display='none';
-  }, 500);
+  goTo('historial');
+  refreshHistorial();
+}
+function noGuardarDesdeExportar(){
+  state.editandoRecordId = null;
+  state.viendoHistorial = false;
+  resetFlow();
+  toast('No se guardaron cambios');
+  goTo('historial');
+  refreshHistorial();
+}
+function salirDesdeExportar(){
+  state.editandoRecordId = null;
+  state.viendoHistorial = false;
+  localStorage.removeItem('bdl_draft');
+  resetFlow();
+  goTo('registro');
+  revisarSeguimientosHoy();
 }
 function resetFlow(){
   state.tipo=null; state.respuestas={}; state.kit=[]; state.alertasClima=[]; state.cliente={};
