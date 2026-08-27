@@ -365,7 +365,7 @@
       <div class="export-btn" onclick="exportWhatsapp()"><span class="ic">💬</span>WhatsApp</div>
       <div class="export-btn" onclick="exportGmail()"><span class="ic">✉️</span>Gmail</div>
       <div class="export-btn" onclick="exportDescargar()"><span class="ic">⬇️</span>Descargar</div>
-      <div class="export-btn" onclick="window.print()"><span class="ic">🖨️</span>Imprimir</div>
+      <div class="export-btn" onclick="exportImprimir()"><span class="ic">🖨️</span>Imprimir</div>
     </div>
 
     <button class="btn secondary" style="margin-top:18px;" id="btnGuardarExportar" onclick="guardarDesdeExportar()">Guardar</button>
@@ -1259,6 +1259,11 @@ function exportDescargar(){
   link.href = cv.toDataURL('image/png');
   link.click();
   toast('Ficha descargada — puedes adjuntarla donde quieras enviarla');
+}
+function exportImprimir(){
+  const cv = document.getElementById('reportCanvas');
+  document.getElementById('printArea').innerHTML = `<img src="${cv.toDataURL('image/png')}" style="width:100%;">`;
+  window.print();
 }
 
 /* ---------- guardar / historial ---------- */
