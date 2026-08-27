@@ -1389,12 +1389,12 @@ function repetirDiagnostico(id){
   const all = JSON.parse(localStorage.getItem('bdl_diagnosticos')||'[]');
   const r = all.find(x=>x.id===id);
   if(!r) return;
-  state.cliente = Object.assign({}, r.cliente, { fecha: new Date() }); // registro nuevo, fecha de hoy
-  state.editandoRecordId = null; // clave: esto crea un registro NUEVO, nunca sobrescribe el anterior
   state.viendoHistorial = false;
 
   if(!r.tipo){
-    // aún no tiene diagnóstico — la llevamos a elegir el tipo, como un registro normal
+    // aún no tenía diagnóstico — completamos ESTE MISMO registro, sin crear uno nuevo
+    state.cliente = Object.assign({}, r.cliente, { fecha: new Date() });
+    state.editandoRecordId = id;
     state.tipo = null;
     state.respuestas = {};
     document.getElementById('tipoClienteNombre').textContent = state.cliente.nombre;
@@ -1407,6 +1407,9 @@ function repetirDiagnostico(id){
     return;
   }
 
+  // ya tenía un diagnóstico — esto SÍ crea uno nuevo, conservando el anterior para comparar
+  state.cliente = Object.assign({}, r.cliente, { fecha: new Date() });
+  state.editandoRecordId = null;
   state.tipo = r.tipo;
   state.respuestas = Object.assign({}, r.respuestas); // punto de partida: sus respuestas anteriores, editables
 
