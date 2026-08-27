@@ -1262,8 +1262,11 @@ function exportDescargar(){
 }
 function exportImprimir(){
   const cv = document.getElementById('reportCanvas');
-  document.getElementById('printArea').innerHTML = `<img src="${cv.toDataURL('image/png')}" style="width:100%;">`;
+  const area = document.getElementById('printArea');
+  area.innerHTML = `<img src="${cv.toDataURL('image/png')}" style="width:100%;">`;
+  area.style.display = 'block';
   window.print();
+  setTimeout(()=>{ area.style.display = 'none'; }, 500);
 }
 
 /* ---------- guardar / historial ---------- */
